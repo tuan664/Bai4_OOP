@@ -1,0 +1,1528 @@
+/****************************************************
+ * Họ tên: Trần Huy Tuấn
+ * MSSV: 202419009
+ ****************************************************/
+
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
+
+// Lưu thông tin một khoản thưởng.
+public class BonusRecord
+{
+    public decimal Amount { get; set; }
+    public string Reason { get; set; }
+
+    // Dùng cho khoản thưởng theo tỷ lệ.
+    public bool IsRateBonus { get; set; }
+    public decimal Rate { get; set; }
+    public decimal ReferenceAmount { get; set; }
+
+    // Constructor cho thưởng cố định.
+    public BonusRecord(decimal amount, string reason)
+    {
+        Amount = amount;
+        Reason = reason;
+        IsRateBonus = false;
+        Rate = 0;
+        ReferenceAmount = 0;
+    }
+
+    // Constructor cho thưởng theo tỷ lệ.
+    public BonusRecord(
+        decimal amount,
+        decimal rate,
+        decimal referenceAmount,
+        string reason)
+    {
+        Amount = amount;
+        Reason = reason;
+        IsRateBonus = true;
+        Rate = rate;
+        ReferenceAmount = referenceAmount;
+    }
+}
+
+// Lớp cơ sở Employee.
+public abstract class Employee
+{
+    private string employeeId;
+    private string fullName;
+    private string department;
+    private decimal monthlyBonus;
+
+    // Lưu lịch sử các khoản thưởng.
+    private List<BonusRecord> bonusHistory;
+
+    // Constructor rút gọn.
+    protected Employee(
+        string employeeId,
+        string fullName)
+        : this(
+            employeeId,
+            fullName,
+            "Unassigned")
+    {
+    }
+
+    // Constructor đầy đủ.
+    protected Employee(
+        string employeeId,
+        string fullName,
+        string department)
+    {
+        if (string.IsNullOrWhiteSpace(employeeId))
+        {
+            throw new ArgumentException(
+                "Mã nhân sự không được rỗng.");
+        }
+
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            throw new ArgumentException(
+                "Họ tên không được rỗng.");
+        }
+
+        if (string.IsNullOrWhiteSpace(department))
+        {
+            throw new ArgumentException(
+                "Phòng ban không được rỗng.");
+        }
+
+        this.employeeId = employeeId.Trim();
+        this.fullName = fullName.Trim();
+        this.department = department.Trim();
+
+        monthlyBonus = 0;
+        bonusHistory = new List<BonusRecord>();
+    }
+
+    public string EmployeeId
+    {
+        get
+        {
+            return employeeId;
+        }
+    }
+
+    public string FullName
+    {
+        get
+        {
+            return fullName;
+        }
+    }
+
+    public string Department
+    {
+        get
+        {
+            return department;
+        }
+    }
+
+    public decimal MonthlyBonus
+    {
+        get
+        {
+            return monthlyBonus;
+        }
+    }
+
+    // Thêm thưởng cố định.
+    public void AddBonus(decimal amount)
+    {
+        if (amount <= 0)
+        {
+            throw new ArgumentException(
+                "Khoản thưởng phải lớn hơn 0.");
+        }
+
+        monthlyBonus += amount;
+
+        bonusHistory.Add(
+            new BonusRecord(
+                amount,
+                "Không ghi lý do"));
+    }
+
+    // Thêm thưởng cố định kèm lý do.
+    public void AddBonus(
+        decimal amount,
+        string reason)
+    {
+        if (amount <= 0)
+        {
+            throw new ArgumentException(
+                "Khoản thưởng phải lớn hơn 0.");
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ArgumentException(
+                "Lý do thưởng không được rỗng.");
+        }
+
+        monthlyBonus += amount;
+
+        bonusHistory.Add(
+            new BonusRecord(
+                amount,
+                reason.Trim()));
+    }
+
+    // Thêm thưởng theo tỷ lệ.
+    public void AddBonus(
+        decimal rate,
+        decimal referenceAmount,
+        string reason)
+    {
+        if (rate <= 0 || rate > 0.5m)
+        {
+            throw new ArgumentException(
+                "Tỷ lệ thưởng phải lớn hơn 0 và không quá 50%.");
+        }
+
+        if (referenceAmount <= 0)
+        {
+            throw new ArgumentException(
+                "Giá trị tham chiếu phải lớn hơn 0.");
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ArgumentException(
+                "Lý do thưởng không được rỗng.");
+        }
+
+        decimal amount =
+            rate * referenceAmount;
+
+        monthlyBonus += amount;
+
+        bonusHistory.Add(
+            new BonusRecord(
+                amount,
+                rate,
+                referenceAmount,
+                reason.Trim()));
+    }
+
+    // Đặt lại thưởng khi bắt đầu kỳ lương mới.
+    public void ResetMonthlyBonus()
+    {
+        monthlyBonus = 0;
+        bonusHistory.Clear();
+    }
+
+    // Cho lớp con sử dụng lịch sử thưởng.
+    protected List<BonusRecord> GetBonusHistory()
+    {
+        return bonusHistory;
+    }
+
+    // Tạo công thức tính thưởng để hiển thị.
+    protected string GetBonusFormula()
+    {
+        if (bonusHistory.Count == 0)
+        {
+            return "0";
+        }
+
+        string result = "";
+
+        foreach (BonusRecord bonus in bonusHistory)
+        {
+            if (result != "")
+            {
+                result += " + ";
+            }
+
+            if (bonus.IsRateBonus)
+            {
+                result +=
+                    $"{FormatMoney(bonus.ReferenceAmount)} × " +
+                    $"{FormatPercent(bonus.Rate)}";
+            }
+            else
+            {
+                result +=
+                    FormatMoney(bonus.Amount);
+            }
+        }
+
+        return result;
+    }
+
+    // Hiển thị thông tin thưởng.
+    protected void DisplayBonusInfo()
+    {
+        if (bonusHistory.Count == 0)
+        {
+            Console.WriteLine(
+                "Thưởng: Không có");
+
+            return;
+        }
+
+        foreach (BonusRecord bonus in bonusHistory)
+        {
+            if (bonus.IsRateBonus)
+            {
+                Console.WriteLine(
+                    $"Thưởng theo tỷ lệ: " +
+                    $"{FormatPercent(bonus.Rate)} của " +
+                    $"{FormatMoney(bonus.ReferenceAmount)}");
+            }
+            else
+            {
+                Console.WriteLine(
+                    $"Thưởng: " +
+                    $"{FormatMoney(bonus.Amount)}" +
+                    $" - {bonus.Reason}");
+            }
+        }
+    }
+
+    // Các phương thức được lớp con ghi đè.
+    public abstract decimal CalculateGrossPay();
+
+    public abstract string GetEmployeeType();
+
+    public abstract void DisplayPayrollInfo();
+
+    // Định dạng tiền Việt Nam.
+    protected string FormatMoney(decimal money)
+    {
+        return money.ToString(
+            "N0",
+            CultureInfo.GetCultureInfo("vi-VN"));
+    }
+
+    // Định dạng phần trăm.
+    protected string FormatPercent(decimal rate)
+    {
+        return $"{rate * 100:0.##}%";
+    }
+}
+
+// Nhân viên hưởng lương cố định.
+public class SalariedEmployee : Employee
+{
+    private decimal monthlySalary;
+    private decimal responsibilityAllowance;
+
+    // Constructor rút gọn.
+    public SalariedEmployee(
+        string employeeId,
+        string fullName)
+        : this(
+            employeeId,
+            fullName,
+            "Unassigned",
+            0,
+            0)
+    {
+    }
+
+    // Constructor đầy đủ.
+    public SalariedEmployee(
+        string employeeId,
+        string fullName,
+        string department,
+        decimal monthlySalary,
+        decimal responsibilityAllowance)
+        : base(
+            employeeId,
+            fullName,
+            department)
+    {
+        if (monthlySalary < 0)
+        {
+            throw new ArgumentException(
+                "Lương cố định không được âm.");
+        }
+
+        if (responsibilityAllowance < 0)
+        {
+            throw new ArgumentException(
+                "Phụ cấp không được âm.");
+        }
+
+        this.monthlySalary = monthlySalary;
+        this.responsibilityAllowance =
+            responsibilityAllowance;
+    }
+
+    // grossPay =
+    // monthlySalary
+    // + responsibilityAllowance
+    // + monthlyBonus
+    public override decimal CalculateGrossPay()
+    {
+        return monthlySalary
+            + responsibilityAllowance
+            + MonthlyBonus;
+    }
+
+    public override string GetEmployeeType()
+    {
+        return "SalariedEmployee";
+    }
+
+    public override void DisplayPayrollInfo()
+    {
+        Console.WriteLine();
+
+        Console.WriteLine(
+            "Nhân viên lương cố định");
+
+        Console.WriteLine(
+            $"Mã: {EmployeeId}");
+
+        Console.WriteLine(
+            $"Họ tên: {FullName}");
+
+        Console.WriteLine(
+            $"Phòng: {Department}");
+
+        Console.WriteLine(
+            $"Lương cố định: " +
+            $"{FormatMoney(monthlySalary)}");
+
+        Console.WriteLine(
+            $"Phụ cấp: " +
+            $"{FormatMoney(responsibilityAllowance)}");
+
+        DisplayBonusInfo();
+
+        Console.WriteLine(
+            $"Thu nhập mong đợi: " +
+            $"{FormatMoney(CalculateGrossPay())}");
+
+        Console.WriteLine();
+        Console.WriteLine(
+            "Giải thích:");
+
+        Console.WriteLine(
+            $"{FormatMoney(monthlySalary)} + " +
+            $"{FormatMoney(responsibilityAllowance)} + " +
+            $"{GetBonusFormula()}");
+
+        Console.WriteLine(
+            $"= {FormatMoney(CalculateGrossPay())}");
+    }
+}
+
+// Nhân viên hưởng lương theo giờ.
+public class HourlyEmployee : Employee
+{
+    private decimal hourlyRate;
+    private decimal workedHours;
+
+    // Constructor rút gọn.
+    public HourlyEmployee(
+        string employeeId,
+        string fullName)
+        : this(
+            employeeId,
+            fullName,
+            "Unassigned",
+            0,
+            0)
+    {
+    }
+
+    // Constructor đầy đủ.
+    public HourlyEmployee(
+        string employeeId,
+        string fullName,
+        string department,
+        decimal hourlyRate,
+        decimal workedHours)
+        : base(
+            employeeId,
+            fullName,
+            department)
+    {
+        if (hourlyRate < 0)
+        {
+            throw new ArgumentException(
+                "Đơn giá giờ không được âm.");
+        }
+
+        if (workedHours < 0 ||
+            workedHours > 250)
+        {
+            throw new ArgumentException(
+                "Số giờ làm phải từ 0 đến 250.");
+        }
+
+        this.hourlyRate = hourlyRate;
+        this.workedHours = workedHours;
+    }
+
+    // Tính tiền lương cơ bản.
+    private decimal CalculateBasePay()
+    {
+        if (workedHours <= 160)
+        {
+            return workedHours *
+                   hourlyRate;
+        }
+
+        decimal overtimeHours =
+            workedHours - 160;
+
+        decimal regularPay =
+            160 * hourlyRate;
+
+        decimal overtimePay =
+            overtimeHours *
+            hourlyRate *
+            1.5m;
+
+        return regularPay +
+               overtimePay;
+    }
+
+    // grossPay = basePay + monthlyBonus.
+    public override decimal CalculateGrossPay()
+    {
+        return CalculateBasePay()
+            + MonthlyBonus;
+    }
+
+    public override string GetEmployeeType()
+    {
+        return "HourlyEmployee";
+    }
+
+    public override void DisplayPayrollInfo()
+    {
+        Console.WriteLine();
+
+        if (workedHours > 160)
+        {
+            Console.WriteLine(
+                "Nhân viên theo giờ, có giờ vượt ngưỡng");
+        }
+        else
+        {
+            Console.WriteLine(
+                "Nhân viên theo giờ, không có giờ vượt ngưỡng");
+        }
+
+        Console.WriteLine(
+            $"Mã: {EmployeeId}");
+
+        Console.WriteLine(
+            $"Họ tên: {FullName}");
+
+        Console.WriteLine(
+            $"Phòng: {Department}");
+
+        Console.WriteLine(
+            $"Đơn giá giờ: " +
+            $"{FormatMoney(hourlyRate)}");
+
+        Console.WriteLine(
+            $"Số giờ: {workedHours:0.##}");
+
+        if (workedHours > 160)
+        {
+            Console.WriteLine(
+                $"Giờ làm thêm: " +
+                $"{workedHours - 160:0.##}");
+        }
+
+        DisplayBonusInfo();
+
+        Console.WriteLine(
+            $"Thu nhập mong đợi: " +
+            $"{FormatMoney(CalculateGrossPay())}");
+
+        Console.WriteLine();
+        Console.WriteLine(
+            "Giải thích:");
+
+        if (workedHours <= 160)
+        {
+            Console.Write(
+                $"{workedHours:0.##} × " +
+                $"{FormatMoney(hourlyRate)}");
+        }
+        else
+        {
+            decimal overtimeHours =
+                workedHours - 160;
+
+            Console.Write(
+                $"160 × {FormatMoney(hourlyRate)} + " +
+                $"{overtimeHours:0.##} × " +
+                $"{FormatMoney(hourlyRate)} × 1,5");
+        }
+
+        if (MonthlyBonus > 0)
+        {
+            Console.Write(
+                $" + {GetBonusFormula()}");
+        }
+
+        Console.WriteLine();
+
+        Console.WriteLine(
+            $"= {FormatMoney(CalculateGrossPay())}");
+    }
+}
+
+// Nhân viên kinh doanh.
+public class SalesEmployee : Employee
+{
+    private decimal baseSalary;
+    private decimal salesRevenue;
+    private decimal commissionRate;
+
+    // Constructor rút gọn.
+    public SalesEmployee(
+        string employeeId,
+        string fullName)
+        : this(
+            employeeId,
+            fullName,
+            "Unassigned",
+            0,
+            0,
+            0)
+    {
+    }
+
+    // Constructor đầy đủ.
+    public SalesEmployee(
+        string employeeId,
+        string fullName,
+        string department,
+        decimal baseSalary,
+        decimal salesRevenue,
+        decimal commissionRate)
+        : base(
+            employeeId,
+            fullName,
+            department)
+    {
+        if (baseSalary < 0)
+        {
+            throw new ArgumentException(
+                "Lương cơ bản không được âm.");
+        }
+
+        if (salesRevenue < 0)
+        {
+            throw new ArgumentException(
+                "Doanh số không được âm.");
+        }
+
+        if (commissionRate < 0 ||
+            commissionRate > 0.3m)
+        {
+            throw new ArgumentException(
+                "Tỷ lệ hoa hồng phải từ 0 đến 30%.");
+        }
+
+        this.baseSalary = baseSalary;
+        this.salesRevenue = salesRevenue;
+        this.commissionRate =
+            commissionRate;
+    }
+
+    // Cập nhật doanh số.
+    public void UpdateSalesRevenue(
+        decimal newSalesRevenue)
+    {
+        if (newSalesRevenue < 0)
+        {
+            throw new ArgumentException(
+                "Doanh số không được âm.");
+        }
+
+        salesRevenue =
+            newSalesRevenue;
+    }
+
+    // grossPay =
+    // baseSalary
+    // + salesRevenue * commissionRate
+    // + monthlyBonus
+    public override decimal CalculateGrossPay()
+    {
+        return baseSalary
+            + salesRevenue * commissionRate
+            + MonthlyBonus;
+    }
+
+    public override string GetEmployeeType()
+    {
+        return "SalesEmployee";
+    }
+
+    public override void DisplayPayrollInfo()
+    {
+        Console.WriteLine();
+
+        Console.WriteLine(
+            "Nhân viên kinh doanh");
+
+        Console.WriteLine(
+            $"Mã: {EmployeeId}");
+
+        Console.WriteLine(
+            $"Họ tên: {FullName}");
+
+        Console.WriteLine(
+            $"Phòng: {Department}");
+
+        Console.WriteLine(
+            $"Lương cơ bản: " +
+            $"{FormatMoney(baseSalary)}");
+
+        Console.WriteLine(
+            $"Doanh số: " +
+            $"{FormatMoney(salesRevenue)}");
+
+        Console.WriteLine(
+            $"Hoa hồng: " +
+            $"{FormatPercent(commissionRate)}");
+
+        DisplayBonusInfo();
+
+        Console.WriteLine(
+            $"Thu nhập mong đợi: " +
+            $"{FormatMoney(CalculateGrossPay())}");
+
+        Console.WriteLine();
+        Console.WriteLine(
+            "Giải thích:");
+
+        Console.Write(
+            $"{FormatMoney(baseSalary)} + " +
+            $"{FormatMoney(salesRevenue)} × " +
+            $"{FormatPercent(commissionRate)}");
+
+        if (MonthlyBonus > 0)
+        {
+            Console.Write(
+                $" + {GetBonusFormula()}");
+        }
+
+        Console.WriteLine();
+
+        Console.WriteLine(
+            $"= {FormatMoney(CalculateGrossPay())}");
+    }
+}
+
+// Quản lý bảng lương.
+public class Payroll
+{
+    private string period;
+    private List<Employee> employees;
+
+    // Constructor.
+    public Payroll(string period)
+    {
+        if (string.IsNullOrWhiteSpace(period))
+        {
+            throw new ArgumentException(
+                "Kỳ lương không được rỗng.");
+        }
+
+        this.period = period.Trim();
+        employees = new List<Employee>();
+    }
+
+    // Thêm nhân viên.
+    public void AddEmployee(
+        Employee employee)
+    {
+        if (employee == null)
+        {
+            throw new ArgumentException(
+                "Nhân viên không hợp lệ.");
+        }
+
+        if (FindEmployee(
+            employee.EmployeeId) != null)
+        {
+            throw new ArgumentException(
+                $"Mã {employee.EmployeeId} đã tồn tại.");
+        }
+
+        employees.Add(employee);
+    }
+
+    // Tìm nhân viên theo mã.
+    public Employee? FindEmployee(
+        string employeeId)
+    {
+        foreach (
+            Employee employee
+            in employees)
+        {
+            if (employee.EmployeeId ==
+                employeeId)
+            {
+                return employee;
+            }
+        }
+
+        return null;
+    }
+
+    // Tính tổng bảng lương.
+    public decimal CalculateTotalPayroll()
+    {
+        decimal total = 0;
+
+        foreach (
+            Employee employee
+            in employees)
+        {
+            // Đa hình.
+            total +=
+                employee.CalculateGrossPay();
+        }
+
+        return total;
+    }
+
+    // Tính tổng theo phòng ban.
+    public decimal CalculatePayrollByDepartment(
+        string department)
+    {
+        if (string.IsNullOrWhiteSpace(department))
+        {
+            throw new ArgumentException(
+                "Phòng ban không được rỗng.");
+        }
+
+        decimal total = 0;
+
+        foreach (
+            Employee employee
+            in employees)
+        {
+            if (employee.Department.Equals(
+                department.Trim(),
+                StringComparison.OrdinalIgnoreCase))
+            {
+                // Đa hình.
+                total +=
+                    employee.CalculateGrossPay();
+            }
+        }
+
+        return total;
+    }
+
+    // Tìm nhân viên có thu nhập cao nhất.
+    public Employee? FindHighestPaidEmployee()
+    {
+        if (employees.Count == 0)
+        {
+            return null;
+        }
+
+        Employee highest =
+            employees[0];
+
+        for (
+            int i = 1;
+            i < employees.Count;
+            i++)
+        {
+            if (
+                employees[i].CalculateGrossPay()
+                >
+                highest.CalculateGrossPay())
+            {
+                highest =
+                    employees[i];
+            }
+        }
+
+        return highest;
+    }
+
+    // Hiển thị toàn bộ bảng lương.
+    public void DisplayPayroll()
+    {
+        Console.WriteLine();
+        Console.WriteLine(
+            $"Bảng lương kỳ {period}");
+
+        if (employees.Count == 0)
+        {
+            Console.WriteLine(
+                "Chưa có nhân viên.");
+
+            return;
+        }
+
+        Console.WriteLine();
+
+        Console.WriteLine(
+            "Mã\tHọ tên\t\t\tPhòng ban\t\tThu nhập");
+
+        Console.WriteLine(
+            "------------------------------------------------------------");
+
+        foreach (
+            Employee employee
+            in employees)
+        {
+            Console.WriteLine(
+                $"{employee.EmployeeId}\t" +
+                $"{employee.FullName,-20}\t" +
+                $"{employee.Department,-15}\t" +
+                $"{FormatMoney(employee.CalculateGrossPay())} VND");
+        }
+
+        Console.WriteLine(
+            "------------------------------------------------------------");
+
+        Console.WriteLine(
+            $"Tổng bảng lương: " +
+            $"{FormatMoney(CalculateTotalPayroll())} VND");
+
+        Employee? highest =
+            FindHighestPaidEmployee();
+
+        if (highest != null)
+        {
+            Console.WriteLine(
+                $"Thu nhập cao nhất: " +
+                $"{highest.FullName} - " +
+                $"{FormatMoney(highest.CalculateGrossPay())} VND");
+        }
+    }
+
+    // Hiển thị bảng lương theo phòng ban.
+    public void DisplayPayrollByDepartment(
+        string department)
+    {
+        if (string.IsNullOrWhiteSpace(department))
+        {
+            throw new ArgumentException(
+                "Phòng ban không được rỗng.");
+        }
+
+        List<Employee> list =
+            new List<Employee>();
+
+        foreach (
+            Employee employee
+            in employees)
+        {
+            if (employee.Department.Equals(
+                department.Trim(),
+                StringComparison.OrdinalIgnoreCase))
+            {
+                list.Add(employee);
+            }
+        }
+
+        Console.WriteLine();
+        Console.WriteLine(
+            $"Bảng lương phòng {department}");
+
+        if (list.Count == 0)
+        {
+            Console.WriteLine(
+                "Không có nhân viên.");
+
+            return;
+        }
+
+        Console.WriteLine();
+
+        Console.WriteLine(
+            "Mã\tHọ tên\t\t\tThu nhập");
+
+        Console.WriteLine(
+            "------------------------------------------------");
+
+        decimal total = 0;
+
+        foreach (
+            Employee employee
+            in list)
+        {
+            decimal salary =
+                employee.CalculateGrossPay();
+
+            Console.WriteLine(
+                $"{employee.EmployeeId}\t" +
+                $"{employee.FullName,-20}\t" +
+                $"{FormatMoney(salary)} VND");
+
+            total += salary;
+        }
+
+        Console.WriteLine(
+            "------------------------------------------------");
+
+        Console.WriteLine(
+            $"Tổng của phòng {department}: " +
+            $"{FormatMoney(total)} VND");
+    }
+
+    // Hiển thị lương của một nhân viên theo mã.
+    public void DisplayEmployeePayroll(
+        string employeeId)
+    {
+        Employee? employee =
+            FindEmployee(employeeId);
+
+        if (employee == null)
+        {
+            Console.WriteLine(
+                $"Không tìm thấy nhân viên có mã {employeeId}.");
+
+            return;
+        }
+
+        employee.DisplayPayrollInfo();
+    }
+
+    private string FormatMoney(decimal money)
+    {
+        return money.ToString(
+            "N0",
+            CultureInfo.GetCultureInfo("vi-VN"));
+    }
+}
+
+// Chương trình chính.
+public class Program
+{
+    // Đọc chuỗi.
+    private static string ReadString(
+        string message)
+    {
+        while (true)
+        {
+            Console.Write(message);
+
+            string input =
+                Console.ReadLine() ?? "";
+
+            if (!string.IsNullOrWhiteSpace(input))
+            {
+                return input.Trim();
+            }
+
+            Console.WriteLine(
+                "Dữ liệu không được để trống.");
+        }
+    }
+
+    // Đọc số không âm.
+    private static decimal ReadNonNegative(
+        string message)
+    {
+        while (true)
+        {
+            Console.Write(message);
+
+            string input =
+                Console.ReadLine() ?? "";
+
+            decimal value;
+
+            if (
+                decimal.TryParse(
+                    input,
+                    NumberStyles.Number,
+                    CultureInfo.CurrentCulture,
+                    out value)
+                &&
+                value >= 0)
+            {
+                return value;
+            }
+
+            Console.WriteLine(
+                "Vui lòng nhập số không âm.");
+        }
+    }
+
+    // Đọc số dương.
+    private static decimal ReadPositive(
+        string message)
+    {
+        while (true)
+        {
+            Console.Write(message);
+
+            string input =
+                Console.ReadLine() ?? "";
+
+            decimal value;
+
+            if (
+                decimal.TryParse(
+                    input,
+                    NumberStyles.Number,
+                    CultureInfo.CurrentCulture,
+                    out value)
+                &&
+                value > 0)
+            {
+                return value;
+            }
+
+            Console.WriteLine(
+                "Vui lòng nhập số lớn hơn 0.");
+        }
+    }
+
+    // Đọc phần trăm.
+    // Ví dụ nhập 5 thì trả về 0.05.
+    private static decimal ReadPercent(
+        string message,
+        decimal max)
+    {
+        while (true)
+        {
+            Console.Write(message);
+
+            string input =
+                Console.ReadLine() ?? "";
+
+            decimal percent;
+
+            if (
+                decimal.TryParse(
+                    input,
+                    NumberStyles.Number,
+                    CultureInfo.CurrentCulture,
+                    out percent)
+                &&
+                percent >= 0
+                &&
+                percent <= max)
+            {
+                return percent / 100;
+            }
+
+            Console.WriteLine(
+                $"Vui lòng nhập từ 0 đến {max}%.");
+        }
+    }
+
+    // Nhập thưởng.
+    private static void InputBonus(
+        Employee employee)
+    {
+        while (true)
+        {
+            Console.WriteLine();
+
+            Console.Write(
+                "Có muốn thêm thưởng không (y/n): ");
+
+            string answer =
+                Console.ReadLine() ?? "";
+
+            if (answer.Equals(
+                "n",
+                StringComparison.OrdinalIgnoreCase))
+            {
+                break;
+            }
+
+            if (!answer.Equals(
+                "y",
+                StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine(
+                    "Vui lòng nhập y hoặc n.");
+
+                continue;
+            }
+
+            Console.WriteLine();
+
+            Console.WriteLine(
+                "1. Thưởng cố định");
+
+            Console.WriteLine(
+                "2. Thưởng cố định kèm lý do");
+
+            Console.WriteLine(
+                "3. Thưởng theo tỷ lệ");
+
+            Console.Write(
+                "Chọn: ");
+
+            string choice =
+                Console.ReadLine() ?? "";
+
+            try
+            {
+                if (choice == "1")
+                {
+                    decimal amount =
+                        ReadPositive(
+                            "Khoản thưởng: ");
+
+                    employee.AddBonus(
+                        amount);
+                }
+                else if (choice == "2")
+                {
+                    decimal amount =
+                        ReadPositive(
+                            "Khoản thưởng: ");
+
+                    string reason =
+                        ReadString(
+                            "Lý do: ");
+
+                    employee.AddBonus(
+                        amount,
+                        reason);
+                }
+                else if (choice == "3")
+                {
+                    decimal rate =
+                        ReadPercent(
+                            "Tỷ lệ thưởng (%): ",
+                            50);
+
+                    decimal referenceAmount =
+                        ReadPositive(
+                            "Giá trị tham chiếu: ");
+
+                    string reason =
+                        ReadString(
+                            "Lý do: ");
+
+                    employee.AddBonus(
+                        rate,
+                        referenceAmount,
+                        reason);
+                }
+                else
+                {
+                    Console.WriteLine(
+                        "Lựa chọn không hợp lệ.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"Lỗi: {ex.Message}");
+            }
+        }
+    }
+
+    // Nhập nhân viên lương cố định.
+    private static void InputSalaried(
+        Payroll payroll)
+    {
+        Console.WriteLine();
+
+        string id =
+            ReadString("Mã: ");
+
+        string name =
+            ReadString("Họ tên: ");
+
+        string department =
+            ReadString("Phòng: ");
+
+        decimal salary =
+            ReadNonNegative(
+                "Lương cố định: ");
+
+        decimal allowance =
+            ReadNonNegative(
+                "Phụ cấp: ");
+
+        SalariedEmployee employee =
+            new SalariedEmployee(
+                id,
+                name,
+                department,
+                salary,
+                allowance);
+
+        InputBonus(employee);
+
+        payroll.AddEmployee(
+            employee);
+
+        employee.DisplayPayrollInfo();
+    }
+
+    // Nhập nhân viên theo giờ.
+    private static void InputHourly(
+        Payroll payroll)
+    {
+        Console.WriteLine();
+
+        string id =
+            ReadString("Mã: ");
+
+        string name =
+            ReadString("Họ tên: ");
+
+        string department =
+            ReadString("Phòng: ");
+
+        decimal hourlyRate =
+            ReadNonNegative(
+                "Đơn giá giờ: ");
+
+        decimal workedHours;
+
+        while (true)
+        {
+            workedHours =
+                ReadNonNegative(
+                    "Số giờ: ");
+
+            if (workedHours <= 250)
+            {
+                break;
+            }
+
+            Console.WriteLine(
+                "Số giờ phải từ 0 đến 250.");
+        }
+
+        HourlyEmployee employee =
+            new HourlyEmployee(
+                id,
+                name,
+                department,
+                hourlyRate,
+                workedHours);
+
+        InputBonus(employee);
+
+        payroll.AddEmployee(
+            employee);
+
+        employee.DisplayPayrollInfo();
+    }
+
+    // Nhập nhân viên kinh doanh.
+    private static void InputSales(
+        Payroll payroll)
+    {
+        Console.WriteLine();
+
+        string id =
+            ReadString("Mã: ");
+
+        string name =
+            ReadString("Họ tên: ");
+
+        string department =
+            ReadString("Phòng: ");
+
+        decimal baseSalary =
+            ReadNonNegative(
+                "Lương cơ bản: ");
+
+        decimal salesRevenue =
+            ReadNonNegative(
+                "Doanh số: ");
+
+        decimal commissionRate =
+            ReadPercent(
+                "Hoa hồng (%): ",
+                30);
+
+        SalesEmployee employee =
+            new SalesEmployee(
+                id,
+                name,
+                department,
+                baseSalary,
+                salesRevenue,
+                commissionRate);
+
+        InputBonus(employee);
+
+        payroll.AddEmployee(
+            employee);
+
+        employee.DisplayPayrollInfo();
+    }
+
+    // Menu xem bảng lương.
+    private static void ShowPayrollMenu(
+        Payroll payroll)
+    {
+        while (true)
+        {
+            Console.WriteLine();
+
+            Console.WriteLine(
+                "1. Xem toàn bộ bảng lương");
+
+            Console.WriteLine(
+                "2. Xem bảng lương theo phòng ban");
+
+            Console.WriteLine(
+                "3. Xem lương theo mã nhân viên");
+
+            Console.WriteLine(
+                "0. Quay lại");
+
+            Console.Write(
+                "Chọn: ");
+
+            string choice =
+                Console.ReadLine() ?? "";
+
+            try
+            {
+                if (choice == "1")
+                {
+                    payroll.DisplayPayroll();
+                }
+                else if (choice == "2")
+                {
+                    string department =
+                        ReadString(
+                            "Nhập phòng ban: ");
+
+                    payroll.DisplayPayrollByDepartment(
+                        department);
+                }
+                else if (choice == "3")
+                {
+                    string employeeId =
+                        ReadString(
+                            "Nhập mã nhân viên: ");
+
+                    payroll.DisplayEmployeePayroll(
+                        employeeId);
+                }
+                else if (choice == "0")
+                {
+                    break;
+                }
+                else
+                {
+                    Console.WriteLine(
+                        "Lựa chọn không hợp lệ.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"Lỗi: {ex.Message}");
+            }
+        }
+    }
+
+    // Chương trình chính.
+    public static void Main()
+    {
+        // Chỉ đặt OutputEncoding.
+        // Không ép InputEncoding để tránh xung đột
+        // với encoding của terminal VS Code.
+        Console.OutputEncoding =
+            new UTF8Encoding(false);
+
+        Console.WriteLine(
+            "===== CHƯƠNG TRÌNH TÍNH THU NHẬP HẰNG THÁNG =====");
+
+        Console.WriteLine();
+
+        string period =
+            ReadString(
+                "Nhập kỳ lương (VD: 2026-09): ");
+
+        Payroll payroll =
+            new Payroll(period);
+
+        while (true)
+        {
+            Console.WriteLine();
+
+            Console.WriteLine(
+                "1. Nhân viên lương cố định");
+
+            Console.WriteLine(
+                "2. Nhân viên theo giờ");
+
+            Console.WriteLine(
+                "3. Nhân viên kinh doanh");
+
+            Console.WriteLine(
+                "4. Xem bảng lương");
+
+            Console.WriteLine(
+                "0. Thoát");
+
+            Console.Write(
+                "Chọn: ");
+
+            string choice =
+                Console.ReadLine() ?? "";
+
+            try
+            {
+                if (choice == "1")
+                {
+                    InputSalaried(
+                        payroll);
+                }
+                else if (choice == "2")
+                {
+                    InputHourly(
+                        payroll);
+                }
+                else if (choice == "3")
+                {
+                    InputSales(
+                        payroll);
+                }
+                else if (choice == "4")
+                {
+                    ShowPayrollMenu(
+                        payroll);
+                }
+                else if (choice == "0")
+                {
+                    Console.WriteLine();
+
+                    payroll.DisplayPayroll();
+
+                    Console.WriteLine();
+                    Console.WriteLine(
+                        "Kết thúc chương trình.");
+
+                    break;
+                }
+                else
+                {
+                    Console.WriteLine(
+                        "Lựa chọn không hợp lệ.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"Lỗi: {ex.Message}");
+            }
+        }
+    }
+}
